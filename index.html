@@ -376,14 +376,36 @@
     o.start(now);
     o.stop(now + 1.0);
   }
+  /* Eigener Klingelton: Datei neben die HTML legen. Fehlt sie, läuft der Piep-Ton. */
+  var RINGTONE = "ringtone.mp3";
+  var ringAudio = new Audio(RINGTONE);
+  ringAudio.loop = true;      // Dauerschleife
+  ringAudio.volume = 0.7;
+  ringAudio.preload = "auto";
+  var ringFileOk = true, ringPlaying = false;
+  ringAudio.addEventListener("error", function () { ringFileOk = false; });
+
   function startRing() {
-    if (!soundOn || ringTimer) return;
+    if (!soundOn || ringPlaying) return;
     ensureAudio();
     ringBase = clock.getElapsedTime();
-    ringOnce();
-    ringTimer = setInterval(ringOnce, 1600);
+    ringPlaying = true;
+    function fallback() {
+      if (ringTimer) return;
+      ringOnce();
+      ringTimer = setInterval(ringOnce, 1600);
+    }
+    if (ringFileOk) {
+      ringAudio.currentTime = 0;
+      var pr = ringAudio.play();
+      if (pr && pr.catch) pr.catch(function () { ringFileOk = false; if (ringPlaying) fallback(); });
+    } else {
+      fallback();
+    }
   }
   function stopRing() {
+    ringPlaying = false;
+    ringAudio.pause();
     clearInterval(ringTimer);
     ringTimer = null;
   }
