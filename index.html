@@ -113,7 +113,7 @@
 <a id="cta" href="arbeiten.html">Weiter zu Amiras Arbeiten</a>
 <div id="cursor" aria-hidden="true"><span></span></div>
 
-<!-- Three.js + GLTFLoader für dein 3D-Modell -->
+<!-- Three.js + GLTFLoader -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -157,7 +157,7 @@
   screenTex.minFilter = THREE.NearestFilter;
   screenTex.magFilter = THREE.NearestFilter;
 
-  /* ---------- Materialien mit deinen Farben ---------- */
+  /* ---------- Materialien ---------- */
   function phong(color, shininess) {
     return new THREE.MeshPhongMaterial({ 
       color: color, 
@@ -166,10 +166,10 @@
     });
   }
 
-  var shellMat = phong(0x515335, 90);  // Gehäuse: Ebony
-  var darkMat  = phong(0x503429, 40);  // Akzente/Rahmen: Dark Coffee
-  var redMat   = phong(0xae5369, 100); // Menütaste: Rosewood
-  var keyMat   = phong(0xd58198, 70);  // Tasten: Old Rose
+  var shellMat = phong(0x515335, 90);  // Ebony
+  var darkMat  = phong(0x503429, 40);  // Dark Coffee
+  var redMat   = phong(0xae5369, 100); // Rosewood
+  var keyMat   = phong(0xd58198, 70);  // Old Rose
 
   /* ---------- 3D-Container & GLTFLoader ---------- */
   var phone = new THREE.Group();
@@ -180,38 +180,26 @@
   loader.load('phoneblingbling.glb', function (gltf) {
     var myModel = gltf.scene;
 
-    // Weist den Bauteilen deines 3D-Modells die passenden Materialien zu
     myModel.traverse(function (child) {
       if (child.isMesh) {
         var objName = child.name.toLowerCase();
 
-        // 1. Erkennt dein "Screen"-Mesh für das LCD-Display
         if (objName.includes("screen") || objName.includes("bildschirm") || objName.includes("display")) {
           child.material = new THREE.MeshBasicMaterial({ map: screenTex });
-        } 
-        // 2. Tasten bekommen Old Rose
-        else if (objName.includes("key") || objName.includes("taste") || objName.includes("button")) {
+        } else if (objName.includes("key") || objName.includes("taste") || objName.includes("button")) {
           child.material = keyMat;
-        } 
-        // 3. Menütaste bekommt Rosewood
-        else if (objName.includes("nav") || objName.includes("menu")) {
+        } else if (objName.includes("nav") || objName.includes("menu")) {
           child.material = redMat;
-        } 
-        // 4. Rahmen/Details bekommen Dark Coffee
-        else if (objName.includes("bezel") || objName.includes("rahmen") || objName.includes("speaker")) {
+        } else if (objName.includes("bezel") || objName.includes("rahmen") || objName.includes("speaker")) {
           child.material = darkMat;
-        } 
-        // 5. Hauptgehäuse bekommt Ebony
-        else {
+        } else {
           child.material = shellMat;
         }
       }
     });
 
-    // Skalierung & Ausrichtung deines Modells
     myModel.scale.set(1, 1, 1);
     myModel.position.set(0, 0, 0);
-
     phone.add(myModel);
   }, undefined, function (error) {
     console.error('Fehler beim Laden von phoneblingbling.glb:', error);
@@ -268,7 +256,6 @@
   function drawTyped(n, t) {
     lcdBase();
     
-    // Profilbild
     if (imgLoaded) {
       try {
         sx.drawImage(profileImg, 15, 25, 120, 120);
@@ -281,14 +268,12 @@
       } catch(e) {}
     }
 
-    // Sprechblase
     sx.fillStyle = "rgba(255, 255, 255, 0.88)";
     sx.fillRect(145, 20, 352, 320);
     sx.strokeStyle = INK;
     sx.lineWidth = 2;
     sx.strokeRect(145, 20, 352, 320);
 
-    // Text in der Sprechblase
     sx.fillStyle = INK;
     sx.textAlign = "left";
     sx.font = "bold 18px " + FONT;
@@ -357,7 +342,7 @@
   });
 
   /* ---------- Ablauf ---------- */
-  var state = "ringing"; // ringing -> typing -> done
+  var state = "ringing";
   var typed = 0;
   var big = document.getElementById("big");
   var hint = document.getElementById("hint");
@@ -384,12 +369,12 @@
     camera.updateProjectionMatrix();
     var visW = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z * camera.aspect;
     baseX = wide ? Math.min(3.8, visW * 0.22) : 0;
-    baseY = wide ? -0.15 : -1.2;
+    baseY = wide ? -0.15 : -0.5;
     baseScale = wide ? 1 : 0.95;
   }
   window.addEventListener("resize", resize);
 
-  /* ---------- Maus / Touch & Links ---------- */
+  /* ---------- Raycasting & Click Handling ---------- */
   var mx = 0, my = 0;
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   var cursorEl = document.getElementById("cursor");
@@ -399,7 +384,8 @@
     ndc.x = (e.clientX / window.innerWidth) * 2 - 1;
     ndc.y = -(e.clientY / window.innerHeight) * 2 + 1;
     ray.setFromCamera(ndc, camera);
-    return ray.intersectObject(phone, true).length > 0;
+    var intersects = ray.intersectObjects(scene.children, true);
+    return intersects.length > 0;
   }
 
   window.addEventListener("pointermove", function (e) {
@@ -426,7 +412,7 @@
     if (overPhone(e)) answer();
   });
 
-  /* ---------- Animation ---------- */
+  /* ---------- Animation Loop ---------- */
   var clock = new THREE.Clock();
   var cur = { rx: 0.12, ry: -0.4, scale: 1, x: 0, y: 0 };
 
@@ -454,9 +440,9 @@
     } else {
       targetRy = mx * 0.05;
       targetRx = my * 0.03;
-      targetScale = 2.4; // Extremer Zoom auf dein 3D-Modell
-      targetX = 0;       // Zentriert
-      targetY = -1.45;   // Richtet den Kamerafokus auf das Display aus
+      targetScale = 1.8; // Angepasster Zoom für optimalen Fokus
+      targetX = 0;
+      targetY = -0.4;    // Zentriert das Display sauber auf dem Schirm
 
       if (state === "typing") {
         typed += dt * 30;
