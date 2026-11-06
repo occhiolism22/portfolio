@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amira – Arbeiten</title>
+<meta name="description" content="Arbeiten von Amira: Collage, Fotografie, Film, 3D und Text.">
+
+<style>
+  :root {
+    --coffee: #503429;     /* Dark Coffee */
+    --ebony: #515335;      /* Ebony */
+    --rosewood: #ae5369;   /* Rosewood */
+    --sand: #a89c70;       /* Sand */
+    --rose: #d58198;       /* Old Rose */
+  }
+
+  * { box-sizing: border-box; }
+  ::selection { background: var(--sand); color: var(--coffee); }
+  [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--rose); color: var(--coffee);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--ebony); outline-offset: -3px; }
+
+  /* ---------- obere Leiste ---------- */
+  .bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 1.5rem; font-size: 15px;
+    background: var(--rose); border-bottom: 1px solid var(--coffee);
+  }
+  .bar a { text-decoration: none; }
+  .bar a:hover { text-decoration: underline; }
+  .bar nav { display: flex; gap: 2rem; }
+
+  /* ---------- Split: Vorschau links, Liste rechts ---------- */
+  .split {
+    margin-top: 30px; height: calc(100vh - 30px);
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--coffee);
+  }
+  .preview {
+    position: relative; overflow: hidden;
+    border-right: 1px solid var(--coffee);
+    display: grid; place-items: center;
+  }
+  .preview .empty { color: rgba(80, 52, 41, .45); font-size: 1.1rem; }
+  .slide { position: absolute; inset: 0; display: none; }
+  .slide.on { display: block; }
+  .slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slide .block {
+    width: 100%; height: 100%; display: grid; place-items: center;
+    padding: 2rem; text-align: center;
+    font-weight: 800; font-size: clamp(2rem, 5vw, 5rem);
+    letter-spacing: -0.04em; line-height: 0.95;
+  }
+
+  .index { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+  .index-head {
+    position: sticky; top: 0; z-index: 3; background: var(--rose);
+    border-bottom: 1px solid var(--coffee);
+    padding: 1.2rem 1.5rem 1rem;
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem;
+  }
+  .index-head h1 {
+    margin: 0; font-weight: 500; line-height: 0.95; letter-spacing: -0.04em;
+    font-size: clamp(2.4rem, 5vw, 5rem);
+  }
+  .index-head h1 em { font-style: italic; }
+  .socials { display: grid; gap: 0.1rem; font-size: clamp(1.05rem, 1.7vw, 1.7rem); letter-spacing: -0.03em; }
+  .socials a { text-decoration: none; }
+  .socials a:hover { color: var(--ebony); }
+
+  /* ---------- Filter-Leiste ---------- */
+  .filter-bar {
+    position: sticky; top: calc(1.2rem + clamp(2.4rem, 5vw, 5rem) + 1rem);
+    z-index: 2; background: var(--rose);
+    border-bottom: 1px solid var(--coffee);
+    padding: 0.6rem 1.5rem;
+    display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;
+  }
+  .filter-btn {
+    background: none; border: 1px solid var(--coffee); border-radius: 999px;
+    padding: 0.25rem 0.8rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;
+    text-transform: uppercase; transition: background .2s, color .2s;
+  }
+  .filter-btn:hover { background: var(--sand); }
+  .filter-btn.active { background: var(--coffee); color: var(--rose); }
+
+  .list { list-style: none; margin: 0; padding: 0; flex: 1; }
+  .row {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-bottom: 1px solid var(--coffee);
+    padding: 0.4rem 1.5rem 0.55rem;
+    transition: opacity .2s; cursor: pointer;
+  }
+  .row.is-hidden { display: none; }
+  .row .meta { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 500; text-transform: uppercase; }
+  .row .title {
+    display: block; font-weight: 500; letter-spacing: -0.045em; line-height: 1.02;
+    font-size: clamp(2.2rem, 4.8vw, 4.8rem);
+    white-space: nowrap; overflow: hidden;
+  }
+  .list:hover .row:not(:hover) { opacity: .25; }
+  .list:focus-within .row:not(:focus-visible) { opacity: .25; }
+  .list .row:hover, .list .row:focus-visible { opacity: 1; background: var(--sand); }
+
+  /* ---------- Über mich / Kontakt ---------- */
+  .section { padding: 4rem 1.5rem; border-bottom: 1px solid var(--coffee); }
+  .section h2 {
+    margin: 0 0 2rem; font-weight: 500; letter-spacing: -0.04em; line-height: .95;
+    font-size: clamp(2.4rem, 5vw, 5rem);
+  }
+  .about-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 2rem 4rem; }
+  .section p { max-width: 30em; margin: 0 0 1em; font-size: 1.25rem; line-height: 1.3; letter-spacing: -0.01em; }
+  .mail { font-size: clamp(1.6rem, 6vw, 4.5rem); font-weight: 500; letter-spacing: -0.045em; overflow-wrap: anywhere; text-decoration: none; }
+  .mail:hover { color: var(--ebony); }
+  .links { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 1.5rem; font-size: 1.4rem; letter-spacing: -0.02em; }
+
+  #impressum { padding: 3rem 1.5rem 4rem; }
+  #impressum h2 { font-size: 1.6rem; margin-bottom: 1rem; }
+  #impressum p { font-size: 1rem; line-height: 1.5; }
+
+  /* ---------- Detailansicht ---------- */
+  .detail { position: fixed; inset: 0; z-index: 30; background: var(--rose); overflow-y: auto; }
+  .detail-bar {
+    position: sticky; top: 0; z-index: 2; height: 30px; padding: 0 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--rose); border-bottom: 1px solid var(--coffee); font-size: 15px;
+  }
+  .detail-bar button { background: none; border: 0; padding: 0; cursor: pointer; }
+  .detail-bar button:hover { text-decoration: underline; }
+  .detail-body {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 2rem 2.5rem;
+    padding: 1.5rem; align-items: start;
+  }
+  .d-media { aspect-ratio: 16 / 9; background: rgba(80, 52, 41, .08); display: flex; justify-content: center; align-items: center; }
+  .d-media.is-image { aspect-ratio: auto; background: none; }
+  .d-media iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .d-media img, .d-extra img { width: 100%; display: block; }
+  .d-media .none { height: 100%; display: grid; place-items: center; color: rgba(80,52,41,.5); }
+  .d-text h2 { margin: 0 0 .6rem; font-weight: 500; letter-spacing: -0.04em; line-height: 1; font-size: clamp(2rem, 3.6vw, 3.6rem); }
+  .d-meta { display: inline-block; margin: 0 0 1.5rem; padding: .2rem .6rem; font-size: .85rem; text-transform: uppercase; background: var(--sand); border: 1px solid var(--coffee); border-radius: 999px; }
+  .d-desc { margin: 0; font-size: 1.15rem; line-height: 1.35; white-space: pre-line; max-width: 30em; }
+  .d-extra { padding: 0 1.5rem 3rem; display: grid; gap: 1rem; }
+
+  /* ---------- Lebenslauf ---------- */
+  .cv-block { margin-bottom: 3.5rem; max-width: 62rem; }
+  .cv-block h3 { margin: 0 0 1rem; font-weight: 500; letter-spacing: -0.04em; line-height: 1; font-size: clamp(1.8rem, 3.4vw, 3.2rem); }
+  .cv-block h4 { margin: 2rem 0 .5rem; font-size: .8rem; font-weight: 500; text-transform: uppercase; }
+  .cv-row { display: grid; grid-template-columns: 11rem 1fr; gap: .4rem 1.5rem; padding: .8rem 0; border-top: 1px solid var(--coffee); }
+  .cv-row:last-child { border-bottom: 1px solid var(--coffee); }
+  .cv-row .when { font-size: .85rem; font-weight: 500; text-transform: uppercase; padding-top: .35rem; }
+  .cv-row .what { font-size: 1.25rem; line-height: 1.25; letter-spacing: -0.01em; }
+  .cv-row .what small { display: block; margin-top: .3rem; font-size: 1rem; line-height: 1.35; }
+  .cv-row .what a:hover { color: var(--ebony); }
+  .cv-actions { margin: 0; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; max-width: none; }
+  .cv-btn {
+    display: inline-block; padding: .6rem 1.4rem; text-decoration: none;
+    border: 2px solid var(--coffee); border-radius: 999px; background: var(--sand);
+    font-weight: 700; font-size: 1.15rem; letter-spacing: -0.02em;
+  }
+  .cv-btn:hover { background: var(--ebony); color: var(--rose); }
+  .cv-btn.is-off { background: none; border-style: dashed; pointer-events: none; }
+  .cv-note { font-size: 1rem; }
+
+  /* ---------- Magazin zum Durchblättern ---------- */
+  .detail-body.wide { grid-template-columns: 1fr; }
+  .d-media.is-flip { aspect-ratio: auto; background: none; }
+  .flip-ui { display: flex; flex-direction: column; gap: .9rem; width: 100%; align-items: center; }
+  .flip-ui:fullscreen { background: var(--rose); padding: 1rem; justify-content: center; }
+  .flip-stage { width: 100%; text-align: center; display: flex; justify-content: center; }
+  .flip-book { margin: 0 auto; }
+  .flip-book .page { background: #fff; overflow: hidden; }
+  .flip-book .pg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background-repeat: no-repeat; }
+  .flip-msg { padding: 3rem 1rem; text-align: center; color: rgba(80, 52, 41, .7); }
+  .flip-bar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; font-size: 15px; width: 100%; max-width: 700px; justify-content: center; }
+  .flip-bar button {
+    background: none; border: 1px solid var(--coffee); border-radius: 999px;
+    padding: .25rem .9rem; font-size: 15px; line-height: 1.4; cursor: pointer;
+  }
+  .flip-bar button:hover { background: var(--sand); }
+  .flip-bar .fb-arrow { font-size: 20px; padding: .05rem .9rem .15rem; }
+  .flip-bar .fb-label { min-width: 11rem; text-align: center; }
+  .flip-bar .fb-spacer { flex: 1; }
+
+  /* ---------- Eingebettetes Video (mittig) ---------- */
+  .d-media.is-video { aspect-ratio: auto; background: none; display: grid; place-items: center; padding: 1rem; }
+  .d-media video { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; background: #000; margin: 0 auto; border-radius: 4px; }
+
+  /* ---------- Kreis-Cursor ---------- */
+  #cursor { display: none; opacity: 0; }
+  @media (hover: hover) and (pointer: fine) {
+    body, a, button { cursor: none; }
+    #cursor {
+      display: grid; place-items: center;
+      position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none;
+      width: 22px; height: 22px; margin: -11px 0 0 -11px;
+      border: 2px solid var(--coffee); border-radius: 50%;
+      font-size: 14px; font-weight: 700; color: var(--coffee);
+      transition: width .2s, height .2s, margin .2s, background .2s, border-color .2s;
+    }
+    #cursor.big  { width: 104px; height: 104px; margin: -52px 0 0 -52px; background: var(--coffee); color: var(--rose); border-color: var(--coffee); }
+    #cursor.link { width: 50px; height: 50px; margin: -25px 0 0 -25px; background: var(--rosewood); border-color: var(--coffee); }
+  }
+
+  @media (max-width: 800px) {
+    .split { grid-template-columns: 1fr; height: auto; }
+    .preview { display: none; }
+    .index { height: auto; overflow: visible; }
+    .index-head { top: 30px; }
+    .filter-bar { top: calc(30px + clamp(2.4rem, 5vw, 5rem) + 1.2rem); }
+    .row .title { white-space: normal; }
+    .list:hover .row:not(:hover), .list:focus-within .row:not(:focus-visible) { opacity: 1; }
+    .detail-body { grid-template-columns: 1fr; }
+    .bar nav { gap: 1rem; }
+    .cv-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="bar">
+  <a href="index.html">AMIRA</a>
+  <nav aria-label="Hauptnavigation">
+    <a href="#arbeiten">Arbeiten</a>
+    <a href="#ueber-mich">Über mich</a>
+    <a href="#lebenslauf">Lebenslauf</a>
+    <a href="#kontakt">Kontakt</a>
+  </nav>
+</div>
+
+<main>
+  <section class="split" id="arbeiten">
+    <div class="preview" id="preview" aria-hidden="true">
+      <span class="empty" id="empty">hover over project »</span>
+    </div>
+
+    <div class="index">
+      <div class="index-head">
+        <h1>Index<br><em>meiner</em> Arbeiten</h1>
+        <div class="socials">
+          <a href="https://www.instagram.com/amiracles.archive" rel="noopener">Instagram ▶</a>
+          <a href="https://letterboxd.com/occhiolism1111/" rel="noopener">Letterboxd ▶</a>
+        </div>
+      </div>
+
+      <div class="filter-bar" id="filter-bar">
+        <button type="button" class="filter-btn active" data-filter="all">Alle</button>
+      </div>
+
+      <ul class="list" id="list"></ul>
+    </div>
+  </section>
+
+  <section class="section" id="ueber-mich">
+    <h2>Über mich</h2>
+    <div class="about-grid">
+      <div>
+        <p>Ich bin Amira, Designstudentin im 5. Semester an der HTW Berlin. Ich arbeite sehr gerne mit Collage, Fotografie, Film, 3D und Text.</p>
+        <p>mich inspirieren vor allem interaktionen mit menschen, die interaktionen zwischen menschen. ich würde mich freuen, von euch, durch euch und mit euch vieles zu lernen. ich hätte lust, mich auszuprobieren, ideen gerne miteinzubringen und in den paar monaten, in denen ich da bin, mit euch zu wachsen und das kleine abenteuer zu genießen.</p>
+      </div>
+      <div>
+        <p>Tools: Blender, DaVinci Resolve, Photoshop, InDesign</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="lebenslauf">
+    <h2>Lebenslauf</h2>
+
+    <div class="cv-block">
+      <h3>Bildung</h3>
+      <div class="cv-row"><span class="when">seit 10/2025</span><span class="what"><strong>HTW Berlin</strong> – Kommunikationsdesign</span></div>
+      <div class="cv-row"><span class="when">10/2024 – 09/2025</span><span class="what"><strong>Hochschule RheinMain</strong> – Kommunikationsdesign</span></div>
+      <div class="cv-row"><span class="when">02/2024 – 06/2024</span><span class="what"><strong>Mappen- und Kunstkurs</strong> im Studio Zeiler, München</span></div>
+      <div class="cv-row"><span class="when">06/2020</span><span class="what"><strong>Gymnasium Grünwald</strong> – Allgemeines Abitur</span></div>
+    </div>
+
+    <div class="cv-block">
+      <h3>Erfahrung</h3>
+
+      <h4>Film, Kreatives und Praktikum</h4>
+      <div class="cv-row">
+        <span class="when">seit 04/2026</span>
+        <span class="what"><strong>Filmgruppe</strong>, jeden Freitag – Aufnahmeleiterin und Postproduction
+          <small>Zuständig für Aufnahmeleitung sowie Schnitt und Color Grading. In der Gruppe probieren wir allerdings auch alles aus: Schauspiel, Regie, Kamera und Produktion. Aktuell entwickeln wir gemeinsam einen Film, jede:r erfindet zwei Charaktere, als Nächstes folgt ein Casting.</small></span>
+      </div>
+      <div class="cv-row">
+        <span class="when">05/2022 – 09/2024</span>
+        <span class="what"><strong>Events, Führung und Promotion</strong>
+          <small>Tourguide Bavaria Filmstadt · Spielleiterin Escape Room „Smart Room“ · Promoterin bei Direct Result. Gruppen anleiten, Geschichten erzählen, vor Publikum sprechen.</small></span>
+      </div>
+      <div class="cv-row">
+        <span class="when">10/2021 – 04/2022</span>
+        <span class="what"><strong>Praktikum Marketing</strong> bei Paradigm Capital</span>
+      </div>
+
+      <h4>Weitere Jobs</h4>
+      <div class="cv-row">
+        <span class="when">09/2019 – 10/2026</span>
+        <span class="what"><strong>Service in der Gastronomie</strong>
+          <small>Baraka Restaurant · Restaurant Agadir · L’Osteria am Gasteig · Waitersclub. Teamarbeit unter Zeitdruck, mehrsprachiger Gästekontakt, Spontanität.</small></span>
+      </div>
+      <div class="cv-row">
+        <span class="when">10/2017 – 01/2025</span>
+        <span class="what"><strong>Verkauf und Aushilfen</strong>
+          <small>Søstrene Grene · Velomax · denns Biomarkt · Edeka · Bäckerei Hauer. Kundenkontakt, Verlässlichkeit.</small></span>
+      </div>
+    </div>
+
+    <div class="cv-block">
+      <h3>Kenntnisse</h3>
+      <div class="cv-row">
+        <span class="when">Programme</span>
+        <span class="what">Blender, DaVinci Resolve, Photoshop, InDesign</span>
+      </div>
+      <div class="cv-row">
+        <span class="when">KI-Tools</span>
+        <span class="what">Claude und Adobe Firefly
+          <small>Für erste Visualisierungen, wenn wenig Zeit ist, das Bild aus meinem Kopf in Blender umzusetzen.</small></span>
+      </div>
+      <div class="cv-row">
+        <span class="when">Sprachen</span>
+        <span class="what">Deutsch, Darija (Marokkanischer Dialekt) und Irakisch-Arabisch (Muttersprache) · Englisch (C1) · Französisch (B2)</span>
+      </div>
+    </div>
+
+    <div class="cv-block">
+      <h3>Interessen</h3>
+      <div class="cv-row">
+        <span class="when">Film</span>
+        <span class="what">Ich kann den ganzen Tag über Filme reden. Freitags mit der Filmgruppe, dazwischen auf <a href="https://letterboxd.com/occhiolism1111/" rel="noopener">Letterboxd</a> ▶</span>
+      </div>
+      <div class="cv-row">
+        <span class="when">Mixed Media</span>
+        <span class="what">Aquarell und Ölpastellkreide</span>
+      </div>
+      <div class="cv-row">
+        <span class="when">Collage</span>
+        <span class="what">Analog und digital, für Videoprojekte, aber auch für Posterdesign und Editorial</span>
+      </div>
+    </div>
+
+    <p class="cv-actions">
+      <a class="cv-btn is-off" id="cv-btn" href="lebenslauf_amiranaaiyess_2026.pdf" download aria-disabled="true">Lebenslauf als PDF herunterladen</a>
+      <span class="cv-note" id="cv-note">kommt bald</span>
+    </p>
+  </section>
+
+  <section class="section" id="kontakt">
+    <h2>Kontakt</h2>
+    <a class="mail" href="mailto:amira.alzahra@aol.com">amira.alzahra@aol.com</a>
+    <div class="links">
+      <a href="https://www.instagram.com/amiracles.archive" rel="noopener">Instagram ▶</a>
+      <a href="https://letterboxd.com/occhiolism1111/" rel="noopener">Letterboxd ▶</a>
+    </div>
+  </section>
+
+  <section id="impressum">
+    <h2>Impressum</h2>
+    <p>Angaben gemäß § 5 DDG</p>
+    <p>Amira Naaiyess<br>Elsenstr. 5<br>12435 Berlin Treptow</p>
+    <p>E-Mail: amira.alzahra@aol.com</p>
+  </section>
+</main>
+
+<div class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden>
+  <div class="detail-bar">
+    <span>Arbeiten</span>
+    <button type="button" id="d-close">schließen ✕</button>
+  </div>
+  <div class="detail-body">
+    <div class="d-media" id="d-media"></div>
+    <div class="d-text">
+      <h2 id="d-title"></h2>
+      <p class="d-meta" id="d-meta"></p>
+      <p class="d-desc" id="d-desc"></p>
+    </div>
+  </div>
+  <div class="d-extra" id="d-extra"></div>
+</div>
+
+<div id="cursor" aria-hidden="true"><span></span></div>
+
+<script>
+  // Magazin Seitenliste: 1 bis 120
+  var magPages = [];
+  for (var pNum = 1; pNum <= 120; pNum++) {
+    magPages.push(pNum);
+  }
+
+  var PROJECTS = [
+    {
+      title: "AMIRACLES MAGAZIN N°1",
+      kind: "Editorial Design",
+      year: "2025",
+      text: "Wir sollten für den Typografiekurs ein Magazin erstellen und alle unsere Arbeiten einbetten. Da ich mich während meinen Hausaufgaben eh auf Musik fokussiert habe, habe ich ein Musikmagazin erstellt.",
+      media: {
+        flipbook: {
+          folder: "",
+          name: "28.10_AMIRACLES MAGAZIN N°1_page-{n}.jpg",
+          pad: 4,
+          pages: magPages,
+          sound: ""
+        }
+      }
+    },
+    {
+      title: "Minimusikvideo",
+      kind: "3D / Blender",
+      year: "2026",
+      text: "Wir sollten für einen Einführungskurs in 3D ein kurzes Video rendern. Ich habe mich für ein kleines Musikvideo entschieden.",
+      preview: "coverbildmm.png",
+      media: { video: "minimusicvideo.mp4" }
+    },
+    {
+      title: "Change Process",
+      kind: "Ausstellungsdesign",
+      year: "2026",
+      text: "Für das Hauptprojekt Change Process an der Universität haben meine Kommilitonin und ich eine Kokology Geschichte entwickelt. Kokology sind japanische Psychologietests, die mit kurzen Geschichten und Fragen unbewusste Denk- und Verhaltensmuster sichtbar machen. Sie werden häufig als spielerische Selbsttests eingesetzt.\n\nWir haben uns für die erste freudsche Meditationstechnik entschieden: Der Besucher steigt in einen Zug und muss Entscheidungen treffen. Die Animationen, Teile der Konzeption und die Fragen stammen von mir.",
+      preview: "web_changeprocess_bild.png",
+      media: { video: "web_Bahnhofvideo.mp4" }
+    },
+    {
+      title: "Vertigo / La Haine Inspiration",
+      kind: "Fotografie / Videografie",
+      year: "2026",
+      text: "Ein fotografisches und videografisches Experiment, inspiriert vom ikonischen Vertigo-Effekt aus dem Film 'La Haine'. Das Projekt kombiniert Porträtfotografie und Bewegtbild, um visuelle Spannung und eine immersive Atmosphäre zu erzeugen.",
+      preview: "juniorintrotitelbild.png",
+      media: { video: "juniorintro.mp4" }
+    },
+    {
+      title: "Die Stadt, die nie schläft",
+      kind: "Ausstellungsdesign",
+      year: "2026",
+      text: "Im Rahmen eines Hauptprojektes für die Uni haben wir uns eine Ausstellung für das Q Science Space überlegt. Hier habe ich mir mit meiner Partner:in zusammen das Konzept überlegt, es feingeschliffen und mich speziell um die Raumgestaltung gekümmert. Geplant und visuell dargestellt habe ich das mit Blender.",
+      preview: "installation with poeple.png",
+      media: { image: "installation with poeple.png" }
+    }
+  ];
+</script>
+
+<script>
+(function () {
+
+  var PLACEHOLDERS = [
+    { bg: "#515335", fg: "#a89c70" },
+    { bg: "#a89c70", fg: "#503429" },
+    { bg: "#ae5369", fg: "#503429" },
+    { bg: "#503429", fg: "#d58198" }
+  ];
+
+  var list = document.getElementById("list");
+  var preview = document.getElementById("preview");
+  var emptyEl = document.getElementById("empty");
+  var filterBar = document.getElementById("filter-bar");
+  var slides = [];
+  var projectElements = [];
+
+  function previewSrc(p) {
+    if (p.preview) return p.preview;
+    if (p.media && p.media.flipbook) return flipUrl(p.media.flipbook, p.media.flipbook.pages ? p.media.flipbook.pages[0] : 1);
+    if (p.media && p.media.youtube) return "https://img.youtube.com/vi/" + encodeURIComponent(p.media.youtube) + "/hqdefault.jpg";
+    if (p.media && p.media.image) return p.media.image;
+    return "";
+  }
+
+  // Filter-Kategorien dynamisch erstellen
+  var uniqueKinds = [];
+  PROJECTS.forEach(function(p) {
+    if (p.kind && uniqueKinds.indexOf(p.kind) === -1) {
+      uniqueKinds.push(p.kind);
+    }
+  });
+
+  uniqueKinds.forEach(function(kind) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "filter-btn";
+    btn.textContent = kind;
+    btn.setAttribute("data-filter", kind);
+    filterBar.appendChild(btn);
+  });
+
+  // Projektliste generieren
+  PROJECTS.forEach(function (p, i) {
+    var li = document.createElement("li");
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "row";
+    btn.setAttribute("data-kind", p.kind);
+
+    var meta = document.createElement("span");
+    meta.className = "meta";
+    var k = document.createElement("span"); k.textContent = p.kind;
+    var y = document.createElement("span"); y.textContent = p.year;
+    meta.appendChild(k); meta.appendChild(y);
+
+    var t = document.createElement("span");
+    t.className = "title";
+    t.textContent = p.title;
+
+    btn.appendChild(meta); btn.appendChild(t);
+    li.appendChild(btn);
+    list.appendChild(li);
+    projectElements.push({ li: li, btn: btn, kind: p.kind });
+
+    var slide = document.createElement("div");
+    slide.className = "slide";
+    var src = previewSrc(p);
+    if (src) {
+      var img = document.createElement("img");
+      img.src = src; img.alt = "";
+      slide.appendChild(img);
+    } else {
+      var c = PLACEHOLDERS[i % PLACEHOLDERS.length];
+      var block = document.createElement("div");
+      block.className = "block";
+      block.style.background = c.bg; block.style.color = c.fg;
+      block.textContent = p.title;
+      slide.appendChild(block);
+    }
+    preview.appendChild(slide);
+    slides.push(slide);
+
+    btn.addEventListener("mouseenter", function () { showSlide(i); });
+    btn.addEventListener("focus", function () { showSlide(i); });
+    btn.addEventListener("click", function () { openDetail(i, btn); });
+  });
+
+  // Filter-Logik
+  var filterButtons = filterBar.querySelectorAll(".filter-btn");
+  filterButtons.forEach(function(fBtn) {
+    fBtn.addEventListener("click", function() {
+      filterButtons.forEach(function(b) { b.classList.remove("active"); });
+      fBtn.classList.add("active");
+      var selectedKind = fBtn.getAttribute("data-filter");
+
+      projectElements.forEach(function(item) {
+        if (selectedKind === "all" || item.kind === selectedKind) {
+          item.li.classList.remove("is-hidden");
+        } else {
+          item.li.classList.add("is-hidden");
+        }
+      });
+    });
+  });
+
+  function showSlide(i) {
+    slides.forEach(function (s, n) { s.classList.toggle("on", n === i); });
+    if (emptyEl) emptyEl.style.display = "none";
+  }
+  function clearSlides() {
+    slides.forEach(function (s) { s.classList.remove("on"); });
+    if (emptyEl) emptyEl.style.display = "";
+  }
+  list.addEventListener("mouseleave", clearSlides);
+
+  var detail = document.getElementById("detail");
+  var dMedia = document.getElementById("d-media");
+  var dTitle = document.getElementById("d-title");
+  var dMeta = document.getElementById("d-meta");
+  var dDesc = document.getElementById("d-desc");
+  var dExtra = document.getElementById("d-extra");
+  var dClose = document.getElementById("d-close");
+  var lastFocus = null;
+
+  function buildMedia(p) {
+    var m = p.media || {};
+    dMedia.className = "d-media";
+    dMedia.innerHTML = "";
+    if (m.flipbook) {
+      dMedia.classList.add("is-flip");
+      buildFlipbook(m.flipbook, dMedia, p.title);
+    } else if (m.video) {
+      dMedia.classList.add("is-video");
+      var vd = document.createElement("video");
+      vd.src = encodeURI(m.video) + "#t=0.1";
+      vd.controls = true;
+      vd.playsInline = true;
+      vd.preload = "metadata";
+      if (p.preview) vd.poster = encodeURI(p.preview);
+      vd.setAttribute("aria-label", p.title);
+      dMedia.appendChild(vd);
+    } else if (m.youtube) {
+      var f = document.createElement("iframe");
+      f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(m.youtube);
+      f.title = p.title; f.loading = "lazy"; f.allowFullscreen = true;
+      f.setAttribute("allow", "accelerometer; encrypted-media; picture-in-picture");
+      dMedia.appendChild(f);
+    } else if (m.vimeo) {
+      var v = document.createElement("iframe");
+      v.src = "https://player.vimeo.com/video/" + encodeURIComponent(m.vimeo) + "?dnt=1";
+      v.title = p.title; v.loading = "lazy"; v.allowFullscreen = true;
+      v.setAttribute("allow", "fullscreen; picture-in-picture");
+      dMedia.appendChild(v);
+    } else if (m.image) {
+      dMedia.classList.add("is-image");
+      var im = document.createElement("img");
+      im.src = m.image; im.alt = p.title;
+      dMedia.appendChild(im);
+    } else {
+      var n = document.createElement("div");
+      n.className = "none";
+      n.textContent = "Hier kommt dein Video oder Bild hin";
+      dMedia.appendChild(n);
+    }
+  }
+
+  function openDetail(i, trigger) {
+    var p = PROJECTS[i];
+    lastFocus = trigger || null;
+    buildMedia(p);
+    dTitle.textContent = p.title;
+    dMeta.textContent = p.kind + " · " + p.year;
+    dDesc.textContent = p.text || "";
+    dExtra.innerHTML = "";
+    (p.extra || []).forEach(function (src) {
+      var im = document.createElement("img");
+      im.src = src; im.alt = "";
+      im.loading = "lazy";
+      dExtra.appendChild(im);
+    });
+    document.querySelector(".detail-body").classList.toggle("wide", !!(p.media && p.media.flipbook));
+    detail.hidden = false;
+    detail.scrollTop = 0;
+    document.body.style.overflow = "hidden";
+    dClose.focus();
+    if (cursorEl) cursorEl.className = "";
+  }
+  function closeDetail() {
+    detail.hidden = true;
+    destroyFlip();
+    dMedia.innerHTML = "";
+    document.body.style.overflow = "";
+    if (lastFocus) lastFocus.focus();
+  }
+  dClose.addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function (e) {
+    if (detail.hidden) return;
+    if (e.key === "Escape") closeDetail();
+    else if (activeFlip && e.key === "ArrowRight") activeFlip.flipNext();
+    else if (activeFlip && e.key === "ArrowLeft") activeFlip.flipPrev();
+  });
+
+  var FLIP_SRC = "https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js";
+  var flipLoading = null, activeFlip = null, flipResize = null, flipFs = null;
+  var flipSoundOn = true, audioCtx = null;
+
+  function flipUrl(cfg, n) {
+    var num = String(n);
+    while (num.length < (cfg.pad || 4)) num = "0" + num;
+    return encodeURI((cfg.folder || "") + (cfg.name || "28.10_AMIRACLES MAGAZIN N°1_page-{n}.jpg").replace("{n}", num));
+  }
+  function loadPageFlip() {
+    if (window.St && window.St.PageFlip) return Promise.resolve();
+    if (flipLoading) return flipLoading;
+    flipLoading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = FLIP_SRC; s.onload = resolve;
+      s.onerror = function () { flipLoading = null; reject(new Error("load")); };
+      document.head.appendChild(s);
+    });
+    return flipLoading;
+  }
+  function destroyFlip() {
+    if (flipResize) { window.removeEventListener("resize", flipResize); flipResize = null; }
+    if (flipFs) { document.removeEventListener("fullscreenchange", flipFs); flipFs = null; }
+    if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
+    if (cursorEl && cursorEl.parentNode !== document.body) document.body.appendChild(cursorEl);
+    if (activeFlip) { try { activeFlip.destroy(); } catch (e) {} activeFlip = null; }
+  }
+
+  function playFlipSound(cfg) {
+    if (!flipSoundOn) return;
+    if (cfg.sound) {
+      var a = new Audio(cfg.sound); a.volume = 0.7;
+      a.play().catch(function () {});
+      return;
+    }
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      var dur = 0.3, rate = audioCtx.sampleRate, n = Math.floor(rate * dur);
+      var buf = audioCtx.createBuffer(1, n, rate), d = buf.getChannelData(0);
+      for (var i = 0; i < n; i++) {
+        var t = i / n;
+        var env = Math.pow(Math.sin(Math.PI * Math.pow(t, 0.55)), 2) * (1 - t * 0.35);
+        d[i] = (Math.random() * 2 - 1) * env;
+      }
+      var src = audioCtx.createBufferSource(); src.buffer = buf;
+      var bp = audioCtx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.7;
+      var now = audioCtx.currentTime;
+      bp.frequency.setValueAtTime(3200, now);
+      bp.frequency.exponentialRampToValueAtTime(900, now + dur);
+      var g = audioCtx.createGain(); g.gain.value = 0.55;
+      src.connect(bp); bp.connect(g); g.connect(audioCtx.destination);
+      src.start();
+    } catch (e) {}
+  }
+
+  function buildFlipbook(cfg, host, title) {
+    destroyFlip();
+    var pageList = cfg.pages || [];
+
+    host.innerHTML =
+      '<div class="flip-ui">' +
+        '<div class="flip-stage"><div class="flip-book"><p class="flip-msg">Magazin wird geladen …</p></div></div>' +
+        '<div class="flip-bar">' +
+          '<button type="button" class="fb-arrow fb-prev" aria-label="Vorherige Seite">‹</button>' +
+          '<span class="fb-label" aria-live="polite"></span>' +
+          '<button type="button" class="fb-arrow fb-next" aria-label="Nächste Seite">›</button>' +
+          '<span class="fb-spacer"></span>' +
+          '<button type="button" class="fb-sound">ton: an</button>' +
+          '<button type="button" class="fb-full">vollbild</button>' +
+        '</div>' +
+      '</div>';
+    var ui = host.querySelector(".flip-ui");
+    var stage = host.querySelector(".flip-stage");
+    var book = host.querySelector(".flip-book");
+    var label = host.querySelector(".fb-label");
+
+    /* Doppelseiten-Gruppierung: 
+       0001 = Einzelblatt (Cover)
+       ab 0002 = jeweils Paar aus aktueller + nächster Seite
+    */
+    var pages = [];
+    if (pageList.length > 0) {
+      pages.push({ file: pageList[0], side: "full" }); // Cover
+      for (var p = 1; p < pageList.length; p += 2) {
+        pages.push({ file: pageList[p], side: "full" });
+        if (pageList[p + 1] !== undefined) {
+          pages.push({ file: pageList[p + 1], side: "full" });
+        }
+      }
+    }
+
+    function loadSize(url) {
+      return new Promise(function (resolve) {
+        var im = new Image();
+        im.onload = function () { resolve({ w: im.naturalWidth, h: im.naturalHeight }); };
+        im.onerror = function () { resolve(null); };
+        im.src = url;
+      });
+    }
+
+    Promise.all([loadSize(flipUrl(cfg, pageList[0] || 1))]).then(function (sz) {
+      var cover = sz[0];
+      if (!cover) {
+        book.innerHTML = "";
+        var msg = document.createElement("p");
+        msg.className = "flip-msg";
+        msg.textContent = "Die Magazin-Seiten wurden nicht gefunden.";
+        book.appendChild(msg);
+        return;
+      }
+      var ratio = cfg.ratio || (cover.w / cover.h);
+      loadPageFlip().then(function () { init(ratio); }).catch(function () {
+        book.innerHTML = '<p class="flip-msg">Das Magazin konnte nicht geladen werden.</p>';
+      });
+    });
+
+    function init(ratio) {
+      book.innerHTML = "";
+      var els = pages.map(function (p, i) {
+        var el = document.createElement("div");
+        el.className = "page";
+        if (i === 0 || i === pages.length - 1) el.setAttribute("data-density", "hard");
+        var pg = document.createElement("div");
+        pg.className = "pg";
+        pg.style.backgroundSize = "100% 100%";
+        pg.style.backgroundPosition = "0 0";
+        el.appendChild(pg);
+        el.setAttribute("role", "img");
+        el.setAttribute("aria-label", title + ", Seite " + (i + 1));
+        book.appendChild(el);
+        return el;
+      });
+
+      var loaded = {};
+      function ensure(center) {
+        for (var i = Math.max(0, center - 4); i <= Math.min(pages.length - 1, center + 7); i++) {
+          if (loaded[i]) continue;
+          loaded[i] = true;
+          els[i].firstChild.style.backgroundImage = 'url("' + flipUrl(cfg, pages[i].file).replace(/"/g, "%22") + '")';
+        }
+      }
+      ensure(0);
+
+      function fit() {
+        var full = !!document.fullscreenElement;
+        var availH = full ? window.innerHeight - 90 : Math.min(window.innerHeight - 210, 820);
+        availH = Math.max(availH, 300);
+        var availW = stage.clientWidth || host.clientWidth || window.innerWidth;
+        var w = Math.min(availW, Math.round(availH * 2 * ratio));
+        book.style.width = Math.round(w) + "px";
+      }
+      fit();
+
+      var pf = new St.PageFlip(book, {
+        width: 500,
+        height: Math.round(500 / ratio),
+        size: "stretch",
+        minWidth: 260, maxWidth: 1200,
+        minHeight: Math.round(260 / ratio), maxHeight: Math.round(1200 / ratio),
+        showCover: true,
+        maxShadowOpacity: 0.45,
+        flippingTime: 900,
+        usePortrait: true,
+        mobileScrollSupport: false
+      });
+      pf.loadFromHTML(els);
+      activeFlip = pf;
+
+      function updateLabel(i) {
+        var last = pages.length - 1, text;
+        if (i <= 0) text = "Cover";
+        else if (i >= last) text = "Rückseite";
+        else text = "Doppelseite";
+        label.textContent = text;
+      }
+      updateLabel(0);
+
+      pf.on("flip", function (e) { updateLabel(e.data); ensure(e.data); });
+      pf.on("changeState", function (e) { if (e.data === "flipping") playFlipSound(cfg); });
+
+      host.querySelector(".fb-prev").addEventListener("click", function () { pf.flipPrev(); });
+      host.querySelector(".fb-next").addEventListener("click", function () { pf.flipNext(); });
+      var soundBtn = host.querySelector(".fb-sound");
+      soundBtn.textContent = flipSoundOn ? "ton: an" : "ton: aus";
+      soundBtn.addEventListener("click", function () {
+        flipSoundOn = !flipSoundOn;
+        soundBtn.textContent = flipSoundOn ? "ton: an" : "ton: aus";
+      });
+      host.querySelector(".fb-full").addEventListener("click", function () {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (ui.requestFullscreen) ui.requestFullscreen();
+      });
+
+      flipResize = function () {
+        if (activeFlip !== pf) return;
+        fit();
+        try { pf.update(); } catch (e) {}
+      };
+      window.addEventListener("resize", flipResize);
+
+      flipFs = function () {
+        if (document.fullscreenElement === ui) ui.appendChild(cursorEl);
+        else if (cursorEl.parentNode !== document.body) document.body.appendChild(cursorEl);
+        flipResize();
+      };
+      document.addEventListener("fullscreenchange", flipFs);
+
+      [0, 150, 600].forEach(function (ms) { setTimeout(flipResize, ms); });
+    }
+  }
+
+  (function () {
+    var btn = document.getElementById("cv-btn"), note = document.getElementById("cv-note");
+    if (!btn || !window.fetch) return;
+    fetch(btn.getAttribute("href"), { method: "HEAD" }).then(function (r) {
+      if (r.ok) { btn.classList.remove("is-off"); btn.removeAttribute("aria-disabled"); note.hidden = true; }
+    }).catch(function () {});
+  })();
+
+  var cursorEl = document.getElementById("cursor");
+  var cursorText = cursorEl.querySelector("span");
+  window.addEventListener("pointermove", function (e) {
+    if (!cursorEl) return;
+    cursorEl.style.opacity = 1;
+    cursorEl.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
+    var t = e.target.closest ? e.target : null;
+    if (t && t.closest(".row")) {
+      cursorEl.className = "big"; cursorText.textContent = "ansehen";
+    } else if (t && t.closest("a, button")) {
+      cursorEl.className = "link"; cursorText.textContent = "";
+    } else {
+      cursorEl.className = ""; cursorText.textContent = "";
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
