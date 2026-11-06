@@ -157,7 +157,15 @@
     s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
     s.lineTo(x, y + r);
     s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
-    return s;
+    // Fix: absarc/lineTo erzeugen doppelte Punkte (Rundungsfehler ~1e-17).
+    // Doppelpunkte = Kante der Länge 0 = kaputte Bevel-Spitzen ("Sprechblasen-Zipfel").
+    var pts = s.getPoints(20), clean = [];
+    pts.forEach(function (p) {
+      var last = clean[clean.length - 1];
+      if (!last || p.distanceTo(last) > 1e-4) clean.push(p);
+    });
+    if (clean.length > 1 && clean[0].distanceTo(clean[clean.length - 1]) < 1e-4) clean.pop();
+    return new THREE.Shape(clean);
   }
   function slab(w, h, r, depth, bevel, material) {
     var geo = new THREE.ExtrudeGeometry(roundedRect(w, h, r), {
