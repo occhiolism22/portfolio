@@ -109,7 +109,7 @@
 <h1 id="big">ring<br>ring…</h1>
 
 <p id="hint">tippe aufs Handy, um abzunehmen</p>
-<button id="sound" type="button">ton an?</button>
+<button id="sound" type="button">ton: an</button>
 <a id="cta" href="arbeiten.html">Weiter zu Amiras Arbeiten</a>
 <div id="cursor" aria-hidden="true"><span></span></div>
 
@@ -354,7 +354,7 @@
   }
 
   /* ---------- Sound ---------- */
-  var actx = null, soundOn = false, ringTimer = null, ringBase = 0;
+  var actx = null, soundOn = true, ringTimer = null, ringBase = 0;
   function ensureAudio() {
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === "suspended") actx.resume();
@@ -386,7 +386,7 @@
   ringAudio.addEventListener("error", function () { ringFileOk = false; });
 
   function startRing() {
-    if (!soundOn || ringPlaying) return;
+    if (!soundOn || ringPlaying || state !== "ringing") return;
     ensureAudio();
     ringBase = clock.getElapsedTime();
     ringPlaying = true;
@@ -398,7 +398,16 @@
     if (ringFileOk) {
       ringAudio.currentTime = 0;
       var pr = ringAudio.play();
-      if (pr && pr.catch) pr.catch(function () { ringFileOk = false; if (ringPlaying) fallback(); });
+      if (pr && pr.catch) pr.catch(function (err) {
+        if (err && err.name === "NotAllowedError") {
+          // Browser blockt Autoplay: beim ersten Tippen/Klick starten
+          ringPlaying = false;
+          waitForGesture();
+        } else {
+          ringFileOk = false;
+          if (ringPlaying) fallback();
+        }
+      });
     } else {
       fallback();
     }
@@ -420,10 +429,31 @@
     o.start(now); o.stop(now + dur + 0.02);
   }
 
+  /* Ton ist standardmäßig an. Browser erlauben Ton erst nach einer Geste:
+     dann startet der Klingelton beim ersten Tippen/Klick/Tastendruck. */
+  var gestureArmed = false;
+  function waitForGesture() {
+    if (gestureArmed) return;
+    gestureArmed = true;
+    function go(e) {
+      if (e.target && e.target.closest && e.target.closest("#sound")) return;
+      gestureArmed = false;
+      ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.removeEventListener(ev, go, true); });
+      if (soundOn && state === "ringing") startRing();
+    }
+    ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.addEventListener(ev, go, true); });
+  }
+
   var soundBtn = document.getElementById("sound");
   soundBtn.addEventListener("click", function () {
+    if (soundOn && gestureArmed) {          // Ton "an", aber vom Browser noch blockiert
+      gestureArmed = false;
+      ensureAudio();
+      if (state === "ringing") startRing();
+      return;
+    }
     soundOn = !soundOn;
-    soundBtn.textContent = soundOn ? "ton: an" : "ton an?";
+    soundBtn.textContent = soundOn ? "ton: an" : "ton: aus";
     if (soundOn) { ensureAudio(); if (state === "ringing") startRing(); }
     else stopRing();
   });
@@ -562,6 +592,8 @@
 
   resize();
   tick();
+  // Beim Laden sofort versuchen (nach Initialisierung von state & clock)
+  startRing();
 
 })();
 </script>
