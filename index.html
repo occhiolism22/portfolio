@@ -145,38 +145,72 @@
   profileImg.onload = function() { imgLoaded = true; };
 
   /* ---------- Hilfsfunktionen für das Modell ---------- */
-  function roundedRect(w, h, r) {
-    var s = new THREE.Shape();
-    var x = -w / 2, y = -h / 2;
-    s.moveTo(x + r, y);
-    s.lineTo(x + w - r, y);
-    s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
-    s.lineTo(x + w, y + h - r);
-    s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
-    s.lineTo(x + r, y + h);
-    s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
-    s.lineTo(x, y + r);
-    s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
-    // Fix: absarc/lineTo erzeugen doppelte Punkte (Rundungsfehler ~1e-17).
-    // Doppelpunkte = Kante der Länge 0 = kaputte Bevel-Spitzen ("Sprechblasen-Zipfel").
-    var pts = s.getPoints(20), clean = [];
-    pts.forEach(function (p) {
-      var last = clean[clean.length - 1];
-      if (!last || p.distanceTo(last) > 1e-4) clean.push(p);
-    });
-    if (clean.length > 1 && clean[0].distanceTo(clean[clean.length - 1]) < 1e-4) clean.pop();
-    return new THREE.Shape(clean);
-  }
-  function slab(w, h, r, depth, bevel, material) {
-    var geo = new THREE.ExtrudeGeometry(roundedRect(w, h, r), {
-      depth: depth,
-      bevelEnabled: bevel > 0,
-      bevelThickness: bevel,
-      bevelSize: bevel,
-      bevelSegments: 4,
-      curveSegments: 20
-    });
-    geo.translate(0, 0, -depth / 2);
+  /* Abgerundete Platte mit glatter Fase. Eigene Geometrie statt ExtrudeGeometry:
+     durchgehend glatte Normalen, kein Nahtpunkt (kein Zipfel), keine Knicke. */
+  function slab(w, h, r, depth, bevel, material, cornerSeg, bevelSeg) {
+    cornerSeg = cornerSeg || 16;
+    bevelSeg = bevelSeg || 6;
+    r = Math.min(r, w / 2, h / 2);
+    var b = bevel, hz = depth / 2;
+
+    // Kontur (gegen den Uhrzeigersinn) mit Außennormalen
+    var cx = [w / 2 - r, -(w / 2 - r), -(w / 2 - r), w / 2 - r];
+    var cy = [h / 2 - r, h / 2 - r, -(h / 2 - r), -(h / 2 - r)];
+    var pts = [];
+    for (var c = 0; c < 4; c++) {
+      for (var s = 0; s <= cornerSeg; s++) {
+        var th = (c + s / cornerSeg) * Math.PI / 2;
+        var nx = Math.cos(th), ny = Math.sin(th);
+        pts.push({ x: cx[c] + r * nx, y: cy[c] + r * ny, nx: nx, ny: ny });
+      }
+    }
+    var N = pts.length;
+
+    // Profil: Vorderseite -> Fase -> Seitenwand -> Fase -> Rückseite
+    var prof = [], k, a;
+    for (k = 0; k <= bevelSeg; k++) {
+      a = (k / bevelSeg) * Math.PI / 2;
+      prof.push({ o: b * Math.sin(a), z: hz + b * Math.cos(a), no: Math.sin(a), nz: Math.cos(a) });
+    }
+    for (k = bevelSeg; k >= 0; k--) {
+      a = (k / bevelSeg) * Math.PI / 2;
+      prof.push({ o: b * Math.sin(a), z: -hz - b * Math.cos(a), no: Math.sin(a), nz: -Math.cos(a) });
+    }
+    var P = prof.length;
+
+    var pos = [], nor = [], idx = [], i, j;
+    for (j = 0; j < P; j++) {
+      for (i = 0; i < N; i++) {
+        var p = pts[i], q = prof[j];
+        pos.push(p.x + p.nx * q.o, p.y + p.ny * q.o, q.z);
+        nor.push(p.nx * q.no, p.ny * q.no, q.nz);
+      }
+    }
+    for (j = 0; j < P - 1; j++) {
+      for (i = 0; i < N; i++) {
+        var i2 = (i + 1) % N;
+        var A = j * N + i, B = j * N + i2, C = (j + 1) * N + i2, D = (j + 1) * N + i;
+        idx.push(A, C, B, A, D, C);
+      }
+    }
+    // Deckel (konvex -> Fächer um die Mitte)
+    function cap(z, nz) {
+      var base = pos.length / 3;
+      pos.push(0, 0, z); nor.push(0, 0, nz);
+      for (i = 0; i < N; i++) { pos.push(pts[i].x, pts[i].y, z); nor.push(0, 0, nz); }
+      for (i = 0; i < N; i++) {
+        var i2 = (i + 1) % N;
+        if (nz > 0) idx.push(base, base + 1 + i, base + 1 + i2);
+        else idx.push(base, base + 1 + i2, base + 1 + i);
+      }
+    }
+    cap(hz + b, 1);
+    cap(-hz - b, -1);
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    geo.setIndex(idx);
     return new THREE.Mesh(geo, material);
   }
   function phong(color) {
@@ -193,7 +227,7 @@
   phone.rotation.order = "YXZ";
   scene.add(phone);
 
-  var body = slab(2.0, 4.6, 0.7, 0.5, 0.12, shellMat);
+  var body = slab(2.0, 4.6, 0.7, 0.5, 0.12, shellMat, 28, 10);
   phone.add(body);
   var z0 = 0.37;
 
