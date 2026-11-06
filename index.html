@@ -109,11 +109,14 @@
 <h1 id="big">ring<br>ring…</h1>
 
 <p id="hint">tippe aufs Handy, um abzunehmen</p>
-<button id="sound" type="button">ton: an</button>
+<button id="sound" type="button">ton an?</button>
 <a id="cta" href="arbeiten.html">Weiter zu Amiras Arbeiten</a>
 <div id="cursor" aria-hidden="true"><span></span></div>
 
+<!-- Three.js + GLTFLoader für dein 3D-Modell -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
 <script>
 (function () {
 
@@ -144,162 +147,75 @@
   var imgLoaded = false;
   profileImg.onload = function() { imgLoaded = true; };
 
-  /* ---------- Hilfsfunktionen für das Modell ---------- */
-  /* Abgerundete Platte mit glatter Fase. Eigene Geometrie statt ExtrudeGeometry:
-     durchgehend glatte Normalen, kein Nahtpunkt (kein Zipfel), keine Knicke. */
-  function slab(w, h, r, depth, bevel, material, cornerSeg, bevelSeg) {
-    cornerSeg = cornerSeg || 16;
-    bevelSeg = bevelSeg || 6;
-    r = Math.min(r, w / 2, h / 2);
-    var b = bevel, hz = depth / 2;
+  /* ---------- Display als Canvas-Textur ---------- */
+  var sc = document.createElement("canvas");
+  sc.width = 512; sc.height = 360;
+  var sx = sc.getContext("2d");
+  sx.imageSmoothingEnabled = false;
 
-    // Kontur (gegen den Uhrzeigersinn) mit Außennormalen
-    var cx = [w / 2 - r, -(w / 2 - r), -(w / 2 - r), w / 2 - r];
-    var cy = [h / 2 - r, h / 2 - r, -(h / 2 - r), -(h / 2 - r)];
-    var pts = [];
-    for (var c = 0; c < 4; c++) {
-      for (var s = 0; s <= cornerSeg; s++) {
-        var th = (c + s / cornerSeg) * Math.PI / 2;
-        var nx = Math.cos(th), ny = Math.sin(th);
-        pts.push({ x: cx[c] + r * nx, y: cy[c] + r * ny, nx: nx, ny: ny });
-      }
-    }
-    var N = pts.length;
+  var screenTex = new THREE.CanvasTexture(sc);
+  screenTex.minFilter = THREE.NearestFilter;
+  screenTex.magFilter = THREE.NearestFilter;
 
-    // Profil: Vorderseite -> Fase -> Seitenwand -> Fase -> Rückseite
-    var prof = [], k, a;
-    for (k = 0; k <= bevelSeg; k++) {
-      a = (k / bevelSeg) * Math.PI / 2;
-      prof.push({ o: b * Math.sin(a), z: hz + b * Math.cos(a), no: Math.sin(a), nz: Math.cos(a) });
-    }
-    for (k = bevelSeg; k >= 0; k--) {
-      a = (k / bevelSeg) * Math.PI / 2;
-      prof.push({ o: b * Math.sin(a), z: -hz - b * Math.cos(a), no: Math.sin(a), nz: -Math.cos(a) });
-    }
-    var P = prof.length;
-
-    var pos = [], nor = [], idx = [], i, j;
-    for (j = 0; j < P; j++) {
-      for (i = 0; i < N; i++) {
-        var p = pts[i], q = prof[j];
-        pos.push(p.x + p.nx * q.o, p.y + p.ny * q.o, q.z);
-        nor.push(p.nx * q.no, p.ny * q.no, q.nz);
-      }
-    }
-    for (j = 0; j < P - 1; j++) {
-      for (i = 0; i < N; i++) {
-        var i2 = (i + 1) % N;
-        var A = j * N + i, B = j * N + i2, C = (j + 1) * N + i2, D = (j + 1) * N + i;
-        idx.push(A, C, B, A, D, C);
-      }
-    }
-    // Deckel (konvex -> Fächer um die Mitte)
-    function cap(z, nz) {
-      var base = pos.length / 3;
-      pos.push(0, 0, z); nor.push(0, 0, nz);
-      for (i = 0; i < N; i++) { pos.push(pts[i].x, pts[i].y, z); nor.push(0, 0, nz); }
-      for (i = 0; i < N; i++) {
-        var i2 = (i + 1) % N;
-        if (nz > 0) idx.push(base, base + 1 + i, base + 1 + i2);
-        else idx.push(base, base + 1 + i2, base + 1 + i);
-      }
-    }
-    cap(hz + b, 1);
-    cap(-hz - b, -1);
-
-    var geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-    geo.setIndex(idx);
-    return new THREE.Mesh(geo, material);
-  }
-  function phong(color) {
-    return new THREE.MeshPhongMaterial({ color: color, shininess: 70, specular: 0x555555 });
+  /* ---------- Materialien mit deinen Farben ---------- */
+  function phong(color, shininess) {
+    return new THREE.MeshPhongMaterial({ 
+      color: color, 
+      shininess: shininess || 80, 
+      specular: 0x555555 
+    });
   }
 
-  var shellMat = phong(0x515335);   // Gehäuse: Ebony
-  var darkMat  = phong(0x503429);   // Dark Coffee
-  var redMat   = phong(0xae5369);   // Navigationstaste: Rosewood
-  var keyMat   = phong(0xd58198);   // Old Rose
+  var shellMat = phong(0x515335, 90);  // Gehäuse: Ebony
+  var darkMat  = phong(0x503429, 40);  // Akzente/Rahmen: Dark Coffee
+  var redMat   = phong(0xae5369, 100); // Menütaste: Rosewood
+  var keyMat   = phong(0xd58198, 70);  // Tasten: Old Rose
 
-  /* ---------- Klassisches Nokia Handy ---------- */
+  /* ---------- 3D-Container & GLTFLoader ---------- */
   var phone = new THREE.Group();
   phone.rotation.order = "YXZ";
   scene.add(phone);
 
-  var body = slab(2.0, 4.6, 0.7, 0.5, 0.12, shellMat, 28, 10);
-  phone.add(body);
-  var z0 = 0.37;
+  var loader = new THREE.GLTFLoader();
+  loader.load('phoneblingbling.glb', function (gltf) {
+    var myModel = gltf.scene;
 
-  var speaker = slab(0.55, 0.07, 0.035, 0.02, 0.01, darkMat);
-  speaker.position.set(0, 2.0, z0 + 0.01);
-  phone.add(speaker);
+    // Weist den Bauteilen deines 3D-Modells die passenden Materialien zu
+    myModel.traverse(function (child) {
+      if (child.isMesh) {
+        var objName = child.name.toLowerCase();
 
-  var bezel = slab(1.62, 1.18, 0.18, 0.02, 0.02, darkMat);
-  bezel.position.set(0, 1.2, z0 + 0.02);
-  phone.add(bezel);
+        // 1. Erkennt dein "Screen"-Mesh für das LCD-Display
+        if (objName.includes("screen") || objName.includes("bildschirm") || objName.includes("display")) {
+          child.material = new THREE.MeshBasicMaterial({ map: screenTex });
+        } 
+        // 2. Tasten bekommen Old Rose
+        else if (objName.includes("key") || objName.includes("taste") || objName.includes("button")) {
+          child.material = keyMat;
+        } 
+        // 3. Menütaste bekommt Rosewood
+        else if (objName.includes("nav") || objName.includes("menu")) {
+          child.material = redMat;
+        } 
+        // 4. Rahmen/Details bekommen Dark Coffee
+        else if (objName.includes("bezel") || objName.includes("rahmen") || objName.includes("speaker")) {
+          child.material = darkMat;
+        } 
+        // 5. Hauptgehäuse bekommt Ebony
+        else {
+          child.material = shellMat;
+        }
+      }
+    });
 
-  /* Display als Canvas-Textur */
-  var sc = document.createElement("canvas");
-  sc.width = 512; sc.height = 360;
-  var sx = sc.getContext("2d");
-  var screenTex = new THREE.CanvasTexture(sc);
-  var screenMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.4, 0.97),
-    new THREE.MeshBasicMaterial({ map: screenTex })
-  );
-  screenMesh.position.set(0, 1.2, z0 + 0.075);
-  phone.add(screenMesh);
+    // Skalierung & Ausrichtung deines Modells
+    myModel.scale.set(1, 1, 1);
+    myModel.position.set(0, 0, 0);
 
-  /* Anruf-Lämpchen */
-  var led = new THREE.Mesh(
-    new THREE.SphereGeometry(0.075, 20, 20),
-    new THREE.MeshBasicMaterial({ color: 0xd58198 })
-  );
-  led.position.set(0.72, 2.0, z0 + 0.04);
-  phone.add(led);
-
-  /* Navigationstaste */
-  var nav = slab(0.8, 0.34, 0.17, 0.04, 0.03, redMat);
-  nav.position.set(0, 0.4, z0 + 0.02);
-  phone.add(nav);
-
-  /* Tastatur */
-  function keyLabel(top, bottom) {
-    var c = document.createElement("canvas");
-    c.width = 160; c.height = 100;
-    var g = c.getContext("2d");
-    g.textAlign = "center";
-    g.fillStyle = "#503429";
-    g.font = "bold 54px Helvetica, Arial, sans-serif";
-    g.fillText(top, 80, bottom ? 58 : 66);
-    if (bottom) {
-      g.fillStyle = "#515335";
-      g.font = "bold 22px Helvetica, Arial, sans-serif";
-      g.fillText(bottom, 80, 88);
-    }
-    return new THREE.CanvasTexture(c);
-  }
-  var labels = [
-    ["1", ""], ["2", "abc"], ["3", "def"],
-    ["4", "ghi"], ["5", "jkl"], ["6", "mno"],
-    ["7", "pqrs"], ["8", "tuv"], ["9", "wxyz"],
-    ["*", ""], ["0", "+"], ["#", ""]
-  ];
-  for (var i = 0; i < 12; i++) {
-    var col = i % 3, row = Math.floor(i / 3);
-    var x = (col - 1) * 0.62;
-    var y = -0.25 - row * 0.47;
-    var key = slab(0.5, 0.32, 0.1, 0.04, 0.03, keyMat);
-    key.position.set(x, y, z0 + 0.02);
-    phone.add(key);
-    var lab = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.42, 0.26),
-      new THREE.MeshBasicMaterial({ map: keyLabel(labels[i][0], labels[i][1]), transparent: true, depthWrite: false })
-    );
-    lab.position.set(x, y, z0 + 0.02 + 0.02 + 0.03 + 0.006);
-    phone.add(lab);
-  }
+    phone.add(myModel);
+  }, undefined, function (error) {
+    console.error('Fehler beim Laden von phoneblingbling.glb:', error);
+  });
 
   /* ---------- Display-Inhalte ---------- */
   var INK = "#503429", LCD = "#a89c70";
@@ -352,7 +268,7 @@
   function drawTyped(n, t) {
     lcdBase();
     
-    // Großes Profilbild links
+    // Profilbild
     if (imgLoaded) {
       try {
         sx.drawImage(profileImg, 15, 25, 120, 120);
@@ -365,7 +281,7 @@
       } catch(e) {}
     }
 
-    // Sprechblase / Chat-Bubble
+    // Sprechblase
     sx.fillStyle = "rgba(255, 255, 255, 0.88)";
     sx.fillRect(145, 20, 352, 320);
     sx.strokeStyle = INK;
@@ -388,7 +304,7 @@
   }
 
   /* ---------- Sound ---------- */
-  var actx = null, soundOn = true, ringTimer = null, ringBase = 0;
+  var actx = null, soundOn = false, ringTimer = null, ringBase = 0;
   function ensureAudio() {
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === "suspended") actx.resume();
@@ -410,45 +326,14 @@
     o.start(now);
     o.stop(now + 1.0);
   }
-  /* Eigener Klingelton: Datei neben die HTML legen. Fehlt sie, läuft der Piep-Ton. */
-  var RINGTONE = "ringtone.mp3";
-  var ringAudio = new Audio(RINGTONE);
-  ringAudio.loop = true;      // Dauerschleife
-  ringAudio.volume = 0.7;
-  ringAudio.preload = "auto";
-  var ringFileOk = true, ringPlaying = false;
-  ringAudio.addEventListener("error", function () { ringFileOk = false; });
-
   function startRing() {
-    if (!soundOn || ringPlaying || state !== "ringing") return;
+    if (!soundOn || ringTimer) return;
     ensureAudio();
     ringBase = clock.getElapsedTime();
-    ringPlaying = true;
-    function fallback() {
-      if (ringTimer) return;
-      ringOnce();
-      ringTimer = setInterval(ringOnce, 1600);
-    }
-    if (ringFileOk) {
-      ringAudio.currentTime = 0;
-      var pr = ringAudio.play();
-      if (pr && pr.catch) pr.catch(function (err) {
-        if (err && err.name === "NotAllowedError") {
-          // Browser blockt Autoplay: beim ersten Tippen/Klick starten
-          ringPlaying = false;
-          waitForGesture();
-        } else {
-          ringFileOk = false;
-          if (ringPlaying) fallback();
-        }
-      });
-    } else {
-      fallback();
-    }
+    ringOnce();
+    ringTimer = setInterval(ringOnce, 1600);
   }
   function stopRing() {
-    ringPlaying = false;
-    ringAudio.pause();
     clearInterval(ringTimer);
     ringTimer = null;
   }
@@ -463,31 +348,10 @@
     o.start(now); o.stop(now + dur + 0.02);
   }
 
-  /* Ton ist standardmäßig an. Browser erlauben Ton erst nach einer Geste:
-     dann startet der Klingelton beim ersten Tippen/Klick/Tastendruck. */
-  var gestureArmed = false;
-  function waitForGesture() {
-    if (gestureArmed) return;
-    gestureArmed = true;
-    function go(e) {
-      if (e.target && e.target.closest && e.target.closest("#sound")) return;
-      gestureArmed = false;
-      ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.removeEventListener(ev, go, true); });
-      if (soundOn && state === "ringing") startRing();
-    }
-    ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.addEventListener(ev, go, true); });
-  }
-
   var soundBtn = document.getElementById("sound");
   soundBtn.addEventListener("click", function () {
-    if (soundOn && gestureArmed) {          // Ton "an", aber vom Browser noch blockiert
-      gestureArmed = false;
-      ensureAudio();
-      if (state === "ringing") startRing();
-      return;
-    }
     soundOn = !soundOn;
-    soundBtn.textContent = soundOn ? "ton: an" : "ton: aus";
+    soundBtn.textContent = soundOn ? "ton: an" : "ton an?";
     if (soundOn) { ensureAudio(); if (state === "ringing") startRing(); }
     else stopRing();
   });
@@ -525,7 +389,7 @@
   }
   window.addEventListener("resize", resize);
 
-  /* ---------- Maus / Touch & Gefixte Links ---------- */
+  /* ---------- Maus / Touch & Links ---------- */
   var mx = 0, my = 0;
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   var cursorEl = document.getElementById("cursor");
@@ -558,9 +422,7 @@
   });
 
   window.addEventListener("pointerdown", function (e) {
-    // Links & Buttons verlinken normal, ohne dass das 3D-Handy dazwischenfunkt
     if (e.target.closest && e.target.closest("a, button")) return;
-
     if (overPhone(e)) answer();
   });
 
@@ -590,12 +452,11 @@
       }
       drawRinging(t);
     } else {
-      // Starker Zoom & Fokus exakt auf das Display in der Mitte
       targetRy = mx * 0.05;
       targetRx = my * 0.03;
-      targetScale = 2.4; // Extrem nah heran gezoomt!
-      targetX = 0;       // Perfekt zentriert
-      targetY = -1.45;   // Richtet den Fokus genau auf den LCD-Bildschirm aus
+      targetScale = 2.4; // Extremer Zoom auf dein 3D-Modell
+      targetX = 0;       // Zentriert
+      targetY = -1.45;   // Richtet den Kamerafokus auf das Display aus
 
       if (state === "typing") {
         typed += dt * 30;
@@ -604,8 +465,6 @@
       drawTyped(typed, t);
     }
     screenTex.needsUpdate = true;
-    var ledOn = state === "ringing" ? Math.floor(t * 4) % 2 === 0 : true;
-    led.material.color.setHex(ledOn ? 0xd58198 : 0x503429);
 
     var k = 1 - Math.pow(0.0015, dt);
     cur.ry += (targetRy - cur.ry) * k;
@@ -626,8 +485,6 @@
 
   resize();
   tick();
-  // Beim Laden sofort versuchen (nach Initialisierung von state & clock)
-  startRing();
 
 })();
 </script>
