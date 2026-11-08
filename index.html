@@ -92,6 +92,22 @@
     #cursor.link { width: 50px; height: 50px; margin: -25px 0 0 -25px; background: var(--rosewood); border-color: var(--coffee); }
   }
 
+  /* Einstiegsbildschirm: der Klick darauf erlaubt dem Browser den Ton */
+  #enter {
+    position: fixed; inset: 0; z-index: 40;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+    background: var(--rose); color: var(--coffee);
+    transition: opacity .5s;
+  }
+  #enter.gone { opacity: 0; pointer-events: none; }
+  #enter button {
+    font: inherit; font-weight: 800; font-size: clamp(2rem, 6vw, 4rem); letter-spacing: -0.02em;
+    color: var(--rose); background: var(--ebony);
+    border: none; border-radius: 999px; padding: .6rem 2.2rem; cursor: pointer;
+  }
+  #enter button:hover { background: var(--sand); color: var(--coffee); }
+  #enter p { margin: 0; font-size: 15px; }
+
   :focus-visible { outline: 3px solid var(--ebony); outline-offset: 3px; }
 </style>
 </head>
@@ -111,6 +127,10 @@
 <p id="hint">tippe aufs Handy, um abzunehmen</p>
 <button id="sound" type="button">ton: an</button>
 <a id="cta" href="arbeiten.html">Weiter zu Amiras Arbeiten</a>
+<div id="enter">
+  <button id="enterBtn" type="button">Eintreten</button>
+  <p>mit Ton</p>
+</div>
 <div id="cursor" aria-hidden="true"><span></span></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -404,7 +424,7 @@
     o.frequency.value = 1050;
     o.connect(g);
     [0, 0.5].forEach(function (b) {
-      for (var i = 0; i < 10; i++) g.gain.setValueAtTime(i % 2 === 0 ? 0.05 : 0, now + b + i * 0.04);
+      for (var i = 0; i < 10; i++) g.gain.setValueAtTime(i % 2 === 0 ? 0.025 : 0, now + b + i * 0.04);
       g.gain.setValueAtTime(0, now + b + 0.4);
     });
     o.start(now);
@@ -414,7 +434,7 @@
   var RINGTONE = "ringtone.mp3";
   var ringAudio = new Audio(RINGTONE);
   ringAudio.loop = true;      // Dauerschleife
-  ringAudio.volume = 0.7;
+  ringAudio.volume = 0.35;
   ringAudio.preload = "auto";
   var ringFileOk = true, ringPlaying = false;
   ringAudio.addEventListener("error", function () { ringFileOk = false; });
@@ -457,7 +477,7 @@
     var now = actx.currentTime + delay;
     var o = actx.createOscillator(), g = actx.createGain();
     o.type = "square"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.05, now);
+    g.gain.setValueAtTime(0.025, now);
     g.gain.setValueAtTime(0, now + dur);
     o.connect(g); g.connect(actx.destination);
     o.start(now); o.stop(now + dur + 0.02);
@@ -545,7 +565,7 @@
     cursorEl.style.opacity = 1;
     cursorEl.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
 
-    if (state === "ringing" && overPhone(e)) {
+    if (entered && state === "ringing" && overPhone(e)) {
       cursorEl.className = "big"; 
       if (cursorText) cursorText.textContent = "abnehmen";
     } else if (e.target.closest && e.target.closest("a, button")) {
@@ -561,7 +581,7 @@
     // Links & Buttons verlinken normal, ohne dass das 3D-Handy dazwischenfunkt
     if (e.target.closest && e.target.closest("a, button")) return;
 
-    if (overPhone(e)) answer();
+    if (entered && overPhone(e)) answer();
   });
 
   /* ---------- Animation ---------- */
@@ -626,8 +646,17 @@
 
   resize();
   tick();
-  // Beim Laden sofort versuchen (nach Initialisierung von state & clock)
-  startRing();
+  // Eintreten: dieser Klick ist die Geste, die dem Browser den Ton erlaubt
+  var enterEl = document.getElementById("enter");
+  var entered = false;
+  document.getElementById("enterBtn").addEventListener("click", function () {
+    entered = true;
+    enterEl.classList.add("gone");
+    setTimeout(function () { enterEl.style.display = "none"; }, 600);
+    gestureArmed = false;
+    ensureAudio();
+    if (state === "ringing") startRing();
+  });
 
 })();
 </script>
