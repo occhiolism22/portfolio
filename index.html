@@ -113,7 +113,10 @@
 <a id="cta" href="arbeiten.html">Weiter zu Amiras Arbeiten</a>
 <div id="cursor" aria-hidden="true"><span></span></div>
 
+<!-- Three.js + GLTFLoader für dein 3D-Modell -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
 <script>
 (function () {
 
@@ -144,120 +147,75 @@
   var imgLoaded = false;
   profileImg.onload = function() { imgLoaded = true; };
 
-  /* ---------- Hilfsfunktionen für das Modell ---------- */
-  function roundedRect(w, h, r) {
-    var s = new THREE.Shape();
-    var x = -w / 2, y = -h / 2;
-    s.moveTo(x + r, y);
-    s.lineTo(x + w - r, y);
-    s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
-    s.lineTo(x + w, y + h - r);
-    s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
-    s.lineTo(x + r, y + h);
-    s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
-    s.lineTo(x, y + r);
-    s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
-    return s;
-  }
-  function slab(w, h, r, depth, bevel, material) {
-    var geo = new THREE.ExtrudeGeometry(roundedRect(w, h, r), {
-      depth: depth,
-      bevelEnabled: bevel > 0,
-      bevelThickness: bevel,
-      bevelSize: bevel,
-      bevelSegments: 4,
-      curveSegments: 20
+  /* ---------- Display als Canvas-Textur ---------- */
+  var sc = document.createElement("canvas");
+  sc.width = 512; sc.height = 360;
+  var sx = sc.getContext("2d");
+  sx.imageSmoothingEnabled = false;
+
+  var screenTex = new THREE.CanvasTexture(sc);
+  screenTex.minFilter = THREE.NearestFilter;
+  screenTex.magFilter = THREE.NearestFilter;
+
+  /* ---------- Materialien mit deinen Farben ---------- */
+  function phong(color, shininess) {
+    return new THREE.MeshPhongMaterial({ 
+      color: color, 
+      shininess: shininess || 80, 
+      specular: 0x555555 
     });
-    geo.translate(0, 0, -depth / 2);
-    return new THREE.Mesh(geo, material);
-  }
-  function phong(color) {
-    return new THREE.MeshPhongMaterial({ color: color, shininess: 70, specular: 0x555555 });
   }
 
-  var shellMat = phong(0x515335);   // Gehäuse: Ebony
-  var darkMat  = phong(0x503429);   // Dark Coffee
-  var redMat   = phong(0xae5369);   // Navigationstaste: Rosewood
-  var keyMat   = phong(0xd58198);   // Old Rose
+  var shellMat = phong(0x515335, 90);  // Gehäuse: Ebony
+  var darkMat  = phong(0x503429, 40);  // Akzente/Rahmen: Dark Coffee
+  var redMat   = phong(0xae5369, 100); // Menütaste: Rosewood
+  var keyMat   = phong(0xd58198, 70);  // Tasten: Old Rose
 
-  /* ---------- Klassisches Nokia Handy ---------- */
+  /* ---------- 3D-Container & GLTFLoader ---------- */
   var phone = new THREE.Group();
   phone.rotation.order = "YXZ";
   scene.add(phone);
 
-  var body = slab(2.0, 4.6, 0.7, 0.5, 0.12, shellMat);
-  phone.add(body);
-  var z0 = 0.37;
+  var loader = new THREE.GLTFLoader();
+  loader.load('phoneblingbling.glb', function (gltf) {
+    var myModel = gltf.scene;
 
-  var speaker = slab(0.55, 0.07, 0.035, 0.02, 0.01, darkMat);
-  speaker.position.set(0, 2.0, z0 + 0.01);
-  phone.add(speaker);
+    // Weist den Bauteilen deines 3D-Modells die passenden Materialien zu
+    myModel.traverse(function (child) {
+      if (child.isMesh) {
+        var objName = child.name.toLowerCase();
 
-  var bezel = slab(1.62, 1.18, 0.18, 0.02, 0.02, darkMat);
-  bezel.position.set(0, 1.2, z0 + 0.02);
-  phone.add(bezel);
+        // 1. Erkennt dein "Screen"-Mesh für das LCD-Display
+        if (objName.includes("screen") || objName.includes("bildschirm") || objName.includes("display")) {
+          child.material = new THREE.MeshBasicMaterial({ map: screenTex });
+        } 
+        // 2. Tasten bekommen Old Rose
+        else if (objName.includes("key") || objName.includes("taste") || objName.includes("button")) {
+          child.material = keyMat;
+        } 
+        // 3. Menütaste bekommt Rosewood
+        else if (objName.includes("nav") || objName.includes("menu")) {
+          child.material = redMat;
+        } 
+        // 4. Rahmen/Details bekommen Dark Coffee
+        else if (objName.includes("bezel") || objName.includes("rahmen") || objName.includes("speaker")) {
+          child.material = darkMat;
+        } 
+        // 5. Hauptgehäuse bekommt Ebony
+        else {
+          child.material = shellMat;
+        }
+      }
+    });
 
-  /* Display als Canvas-Textur */
-  var sc = document.createElement("canvas");
-  sc.width = 512; sc.height = 360;
-  var sx = sc.getContext("2d");
-  var screenTex = new THREE.CanvasTexture(sc);
-  var screenMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.4, 0.97),
-    new THREE.MeshBasicMaterial({ map: screenTex })
-  );
-  screenMesh.position.set(0, 1.2, z0 + 0.075);
-  phone.add(screenMesh);
+    // Skalierung & Ausrichtung deines Modells
+    myModel.scale.set(1, 1, 1);
+    myModel.position.set(0, 0, 0);
 
-  /* Anruf-Lämpchen */
-  var led = new THREE.Mesh(
-    new THREE.SphereGeometry(0.075, 20, 20),
-    new THREE.MeshBasicMaterial({ color: 0xd58198 })
-  );
-  led.position.set(0.72, 2.0, z0 + 0.04);
-  phone.add(led);
-
-  /* Navigationstaste */
-  var nav = slab(0.8, 0.34, 0.17, 0.04, 0.03, redMat);
-  nav.position.set(0, 0.4, z0 + 0.02);
-  phone.add(nav);
-
-  /* Tastatur */
-  function keyLabel(top, bottom) {
-    var c = document.createElement("canvas");
-    c.width = 160; c.height = 100;
-    var g = c.getContext("2d");
-    g.textAlign = "center";
-    g.fillStyle = "#503429";
-    g.font = "bold 54px Helvetica, Arial, sans-serif";
-    g.fillText(top, 80, bottom ? 58 : 66);
-    if (bottom) {
-      g.fillStyle = "#515335";
-      g.font = "bold 22px Helvetica, Arial, sans-serif";
-      g.fillText(bottom, 80, 88);
-    }
-    return new THREE.CanvasTexture(c);
-  }
-  var labels = [
-    ["1", ""], ["2", "abc"], ["3", "def"],
-    ["4", "ghi"], ["5", "jkl"], ["6", "mno"],
-    ["7", "pqrs"], ["8", "tuv"], ["9", "wxyz"],
-    ["*", ""], ["0", "+"], ["#", ""]
-  ];
-  for (var i = 0; i < 12; i++) {
-    var col = i % 3, row = Math.floor(i / 3);
-    var x = (col - 1) * 0.62;
-    var y = -0.25 - row * 0.47;
-    var key = slab(0.5, 0.32, 0.1, 0.04, 0.03, keyMat);
-    key.position.set(x, y, z0 + 0.02);
-    phone.add(key);
-    var lab = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.42, 0.26),
-      new THREE.MeshBasicMaterial({ map: keyLabel(labels[i][0], labels[i][1]), transparent: true, depthWrite: false })
-    );
-    lab.position.set(x, y, z0 + 0.02 + 0.02 + 0.03 + 0.006);
-    phone.add(lab);
-  }
+    phone.add(myModel);
+  }, undefined, function (error) {
+    console.error('Fehler beim Laden von phoneblingbling.glb:', error);
+  });
 
   /* ---------- Display-Inhalte ---------- */
   var INK = "#503429", LCD = "#a89c70";
@@ -310,7 +268,7 @@
   function drawTyped(n, t) {
     lcdBase();
     
-    // Großes Profilbild links
+    // Profilbild
     if (imgLoaded) {
       try {
         sx.drawImage(profileImg, 15, 25, 120, 120);
@@ -323,7 +281,7 @@
       } catch(e) {}
     }
 
-    // Sprechblase / Chat-Bubble
+    // Sprechblase
     sx.fillStyle = "rgba(255, 255, 255, 0.88)";
     sx.fillRect(145, 20, 352, 320);
     sx.strokeStyle = INK;
@@ -431,7 +389,7 @@
   }
   window.addEventListener("resize", resize);
 
-  /* ---------- Maus / Touch & Gefixte Links ---------- */
+  /* ---------- Maus / Touch & Links ---------- */
   var mx = 0, my = 0;
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   var cursorEl = document.getElementById("cursor");
@@ -464,9 +422,7 @@
   });
 
   window.addEventListener("pointerdown", function (e) {
-    // Links & Buttons verlinken normal, ohne dass das 3D-Handy dazwischenfunkt
     if (e.target.closest && e.target.closest("a, button")) return;
-
     if (overPhone(e)) answer();
   });
 
@@ -496,12 +452,11 @@
       }
       drawRinging(t);
     } else {
-      // Starker Zoom & Fokus exakt auf das Display in der Mitte
       targetRy = mx * 0.05;
       targetRx = my * 0.03;
-      targetScale = 2.4; // Extrem nah heran gezoomt!
-      targetX = 0;       // Perfekt zentriert
-      targetY = -1.45;   // Richtet den Fokus genau auf den LCD-Bildschirm aus
+      targetScale = 2.4; // Extremer Zoom auf dein 3D-Modell
+      targetX = 0;       // Zentriert
+      targetY = -1.45;   // Richtet den Kamerafokus auf das Display aus
 
       if (state === "typing") {
         typed += dt * 30;
@@ -510,8 +465,6 @@
       drawTyped(typed, t);
     }
     screenTex.needsUpdate = true;
-    var ledOn = state === "ringing" ? Math.floor(t * 4) % 2 === 0 : true;
-    led.material.color.setHex(ledOn ? 0xd58198 : 0x503429);
 
     var k = 1 - Math.pow(0.0015, dt);
     cur.ry += (targetRy - cur.ry) * k;
