@@ -375,7 +375,10 @@
     // Großes Profilbild links
     if (imgLoaded) {
       try {
-        sx.drawImage(profileImg, 15, 25, 120, 120);
+        // Quadratischer Ausschnitt aus der Bildmitte (cover), nichts wird verzerrt
+        var iw = profileImg.naturalWidth || profileImg.width, ih = profileImg.naturalHeight || profileImg.height;
+        var side = Math.min(iw, ih);
+        sx.drawImage(profileImg, (iw - side) / 2, (ih - side) / 2, side, side, 15, 25, 120, 120);
         sx.fillStyle = "rgba(168, 156, 112, 0.15)";
         for(let px = 15; px < 135; px += 4) {
           for(let py = 25; py < 145; py += 4) {
