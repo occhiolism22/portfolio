@@ -105,6 +105,16 @@
     display: block; font-weight: 500; letter-spacing: -0.045em; line-height: 1.02;
     font-size: clamp(2.2rem, 4.8vw, 4.8rem);
     white-space: nowrap; overflow: hidden;
+    padding-bottom: .12em; margin-bottom: -.12em;   /* Unterlängen (g, p) nicht abschneiden */
+  }
+  /* Zu lange Titel laufen als Endlosschleife */
+  .row .title .track { display: inline-block; white-space: nowrap; will-change: transform;
+    animation: titleLoop var(--dur, 12s) linear infinite; }
+  .row .title .track span { display: inline-block; padding-right: 3rem; }
+  @keyframes titleLoop { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .row .title { text-overflow: ellipsis; }
+    .row .title .track { animation: none; }
   }
   .list:hover .row:not(:hover) { opacity: .25; }
   .list:focus-within .row:not(:focus-visible) { opacity: .25; }
@@ -891,5 +901,46 @@
 })();
 </script>
 
+
+<script>
+/* Lange Projekttitel als nahtlose Endlosschleife */
+(function () {
+  var SPEED = 90; // px pro Sekunde
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function update(t, force) {
+    var text = t.getAttribute("data-text");
+    if (text === null) { text = t.textContent; t.setAttribute("data-text", text); }
+    var w = t.clientWidth;
+    if (!force && t._w === w) return;
+    t._w = w;
+    t.textContent = text;                       // zurücksetzen
+    if (reduce || !w || t.scrollWidth <= w + 1) return;   // passt rein (oder ausgeblendet)
+
+    var track = document.createElement("span");
+    track.className = "track";
+    track.setAttribute("aria-hidden", "true");
+    var a = document.createElement("span"); a.textContent = text;
+    var b = document.createElement("span"); b.textContent = text;
+    track.appendChild(a); track.appendChild(b);
+    t.textContent = "";
+    t.setAttribute("aria-label", text);
+    t.appendChild(track);
+    track.style.setProperty("--dur", (a.offsetWidth / SPEED).toFixed(2) + "s");
+  }
+
+  var titles = Array.prototype.slice.call(document.querySelectorAll(".row .title"));
+  titles.forEach(function (t) { update(t, true); });
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function (entries) { entries.forEach(function (e) { update(e.target); }); });
+    titles.forEach(function (t) { ro.observe(t); });
+  } else {
+    window.addEventListener("resize", function () { titles.forEach(function (t) { update(t); }); });
+  }
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { titles.forEach(function (t) { update(t, true); }); });
+  }
+})();
+</script>
 </body>
 </html>
